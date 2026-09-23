@@ -28,6 +28,7 @@ Hull is a unified Python framework for building, training, and deploying intelli
 - **Validation & Safety** - Built-in sentinel guards and validators
 - **Training Pipeline** - Dataset management and model training
 - **On-chain Vault** - Solana-backed episode ledger for verifiable pilot history
+- **Self-Healing Execution** - Automatic retries with exponential backoff, per-maneuver timeouts, and bridge health checks
 
 ## Installation
 
@@ -150,6 +151,38 @@ async def brewie_pilot():
     return op
 ```
 
+## Self-Healing Execution
+
+Pilots absorb failure instead of crashing on it. Every maneuver can retry with exponential backoff, time out, and report bridge health:
+
+```python
+from hull.pilot import Pilot
+from hull.bridge.desktop import DesktopBridge
+
+async def resilient_login():
+    pilot = Pilot({"desktop": DesktopBridge()})
+
+    # Retry flaky maneuvers up to 3 times, 10s max per attempt
+    await pilot.execute_maneuver("click", selector="#submit",
+                                 retries=3, timeout=10.0)
+
+    # Check every bridge is alive before a critical run
+    health = await pilot.health_check()
+    assert all(status == "ok" for status in health.values())
+```
+
+Tasks can carry the same options:
+
+```python
+await pilot.run({
+    "bridge": "desktop",
+    "maneuver": "type",
+    "params": {"text": "hello"},
+    "retries": 2,
+    "timeout": 5.0,
+})
+```
+
 ## Core Concepts
 
 ### Pilots
@@ -177,3 +210,7 @@ Safety and validation layer that ensures pilots behave within defined constraint
 ## License
 
 MIT — see [LICENSE.md](LICENSE.md) for attribution.
+
+## Credits
+
+Hull builds on the pioneering work of [CodecFlow](https://github.com/codecflow) and their open-source [optr](https://github.com/codecflow/optr) project (MIT licensed), which originated the virtual-OS-for-AI-agents architecture. Hull extends it with a restructured codebase, a renamed public API, and new self-healing execution features (retries, timeouts, health checks). We are grateful to the CodecFlow team for releasing their work openly.
