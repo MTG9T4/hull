@@ -4,6 +4,8 @@
 
 **Self-healing virtual computers for AI agents.**
 
+> **🕹️ [Try the interactive demo — Mission Control](https://mtg9t4.github.io/hull/)** — dispatch maneuvers in your browser, inject failures, and watch the pilot's self-healing retries save the mission. No install needed.
+
 Hull is a unified Python framework for building, training, and deploying intelligent pilots — AI agents that act across digital and physical environments. Every pilot gets a sandboxed, resource-managed runtime that keeps it running: automate a desktop, drive a robot, learn from demonstrations, record and replay episodes.
 
 > [!WARNING]
