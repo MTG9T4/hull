@@ -4,14 +4,14 @@
 
 **Self-healing virtual computers for AI agents.**
 
-Hull is a unified Python framework for building, training, and deploying intelligent operators — AI agents that act across digital and physical environments. Every operator gets a sandboxed, resource-managed runtime that keeps it running: automate a desktop, drive a robot, learn from demonstrations, record and replay episodes.
+Hull is a unified Python framework for building, training, and deploying intelligent pilots — AI agents that act across digital and physical environments. Every pilot gets a sandboxed, resource-managed runtime that keeps it running: automate a desktop, drive a robot, learn from demonstrations, record and replay episodes.
 
 > [!WARNING]
 > **Early Alpha** — APIs and behavior will change without notice.
 
 ## Overview
 
-`hull` provides a flexible architecture for creating operators that can:
+`hull` provides a flexible architecture for creating pilots that can:
 - **Automate desktop applications** via GUI interaction
 - **Control physical robots** through simulation and hardware interfaces
 - **Learn from demonstrations** using imitation learning and reinforcement learning
@@ -23,11 +23,11 @@ Hull is a unified Python framework for building, training, and deploying intelli
 - **Desktop Automation** - Click, type, and interact with GUI elements
 - **Robot Control** - MuJoCo simulation and physical robot support (Brewie)
 - **Learning Algorithms** - Imitation learning, Pi0, and custom algorithms
-- **Episode Recording** - Capture and replay operator sequences
+- **Episode Recording** - Capture and replay pilot sequences
 - **Modular Connectors** - Extensible interface for any environment
 - **Validation & Safety** - Built-in sentinel guards and validators
 - **Training Pipeline** - Dataset management and model training
-- **On-chain Ledger** - Solana-backed episode ledger for verifiable operator history
+- **On-chain Vault** - Solana-backed episode ledger for verifiable pilot history
 
 ## Installation
 
@@ -64,27 +64,27 @@ uv sync --dev
 
 ### Desktop Automation
 
-Create an operator that automates login:
+Create a pilot that automates login:
 
 ```python
-# my_app/operators/login.py
+# my_app/pilots/login.py
 
-from hull.operator import Operator
-from hull.connector.desktop import DesktopConnector
+from hull.pilot import Pilot
+from hull.bridge.desktop import DesktopBridge
 
-async def login_operator():
-    op = Operator({"desktop": DesktopConnector()})
+async def login_pilot():
+    op = Pilot({"desktop": DesktopBridge()})
 
     # Click username field
-    await op.execute_action("click", selector="#username")
-    await op.execute_action("type", text="demo_user")
+    await op.execute_maneuver("click", selector="#username")
+    await op.execute_maneuver("type", text="demo_user")
 
     # Click password field
-    await op.execute_action("click", selector="#password")
-    await op.execute_action("type", text="secure_pass")
+    await op.execute_maneuver("click", selector="#password")
+    await op.execute_maneuver("type", text="secure_pass")
 
     # Submit form
-    await op.execute_action("click", selector="#submit")
+    await op.execute_maneuver("click", selector="#submit")
 
     return op
 ```
@@ -94,23 +94,23 @@ async def login_operator():
 Control a simulated robot:
 
 ```python
-# my_app/operators/robot_sim.py
+# my_app/pilots/robot_sim.py
 
-from hull.operator import Operator
-from hull.simulator.mujoco import MuJoCoSimulation
+from hull.pilot import Pilot
+from hull.drydock.mujoco import MuJoCoSimulation
 
-async def robot_operator():
+async def robot_pilot():
     sim = MuJoCoSimulation("models/robot.xml")
-    op = Operator({"robot": sim.get_connector()})
+    op = Pilot({"robot": sim.get_connector()})
 
     # Move to target position
-    await op.execute_action("move",
-                           connector_name="robot",
+    await op.execute_maneuver("move",
+                           bridge_name="robot",
                            position=[0.5, 0.3, 0.2])
 
     # Grasp object
-    await op.execute_action("grasp",
-                           connector_name="robot",
+    await op.execute_maneuver("grasp",
+                           bridge_name="robot",
                            force=10.0)
 
     return op
@@ -121,57 +121,57 @@ async def robot_operator():
 Control a physical Brewie robot:
 
 ```python
-# my_app/operators/brewie_robot.py
+# my_app/pilots/brewie_robot.py
 
-from hull.operator import Operator
-from hull.connector.robot import BrewieRobot
+from hull.pilot import Pilot
+from hull.bridge.robot import BrewieRobot
 
-async def brewie_operator():
+async def brewie_pilot():
     # Initialize Brewie robot connector
     robot = BrewieRobot(host="192.168.1.100", port=9090)
-    op = Operator({"brewie": robot})
+    op = Pilot({"brewie": robot})
 
     # Connect to robot
-    await op.execute_action("connect", connector_name="brewie")
+    await op.execute_maneuver("connect", bridge_name="brewie")
 
     # Get current robot state
     state = await op.get_state("brewie")
     print(f"Joint positions: {state.metadata['joint_positions']}")
 
     # Move robot joints to target positions
-    await op.execute_action("move",
-                           connector_name="brewie",
+    await op.execute_maneuver("move",
+                           bridge_name="brewie",
                            positions={13: 800, 14: 200, 15: 700},
                            duration=2.0)
 
     # Disconnect
-    await op.execute_action("disconnect", connector_name="brewie")
+    await op.execute_maneuver("disconnect", bridge_name="brewie")
 
     return op
 ```
 
 ## Core Concepts
 
-### Operators
-The main abstraction for defining automated behaviors. Operators can work with multiple connectors simultaneously.
+### Pilots
+The main abstraction for defining automated behaviors. Pilots can work with multiple bridges simultaneously.
 
-### Connectors
-Interfaces to different environments (desktop, robot, web, etc.). Each connector provides state observation and action execution.
+### Bridges
+Interfaces to different environments (desktop, robot, web, etc.). Each bridge provides state observation and maneuver execution.
 
-### Algorithms
-Learning algorithms for training operators from demonstrations or through reinforcement learning.
+### Engines
+Learning engines for training pilots from demonstrations or through reinforcement learning.
 
 ### Episodes
-Recorded sequences of states and actions that can be replayed or used for training.
+Recorded sequences of states and maneuvers that can be replayed or used for training.
 
-### Sentinel
-Safety and validation layer that ensures operators behave within defined constraints.
+### Watch
+Safety and validation layer that ensures pilots behave within defined constraints.
 
 ## Roadmap
 
-- [ ] Cloud API connectors
-- [ ] Distributed operator coordination
-- [ ] Model zoo with pre-trained operators
+- [ ] Cloud API bridges
+- [ ] Distributed pilot coordination
+- [ ] Model zoo with pre-trained pilots
 - [ ] Real-time monitoring dashboard
 
 ## License
