@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hull — Mission Control · Interactive Demo</title>
+<meta name="description" content="Drive Hull's self-healing Pilot in your browser. Dispatch maneuvers, inject failures, watch retries and backoff save the mission.">
+<style>
+  :root{
+    --bg:#0a0d13; --panel:#10141c; --panel2:#151b26; --line:#222b3a;
+    --txt:#e9edf4; --dim:#8b94a7; --faint:#5b6373;
+    --accent:#5cc8e0; --accent-dim:#2a6b7d;
+    --green:#3fd68c; --red:#e5635f; --gold:#d4af37;
+    --mono:"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;min-height:100vh}
+  a{color:var(--accent);text-decoration:none}
+  header{border-bottom:1px solid var(--line);padding:18px 28px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#3a4b63,#141a25);border:1px solid #33405a;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--accent);font-size:18px}
+  header h1{font-size:19px;letter-spacing:.4px}
+  header h1 span{color:var(--dim);font-weight:400;font-size:14px;margin-left:10px}
+  header .spacer{flex:1}
+  .ghbtn{border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:13px;color:var(--txt);background:var(--panel2)}
+  .ghbtn:hover{border-color:var(--accent)}
+  main{max-width:1240px;margin:0 auto;padding:26px 22px 60px}
+  .grid{display:grid;grid-template-columns:1.35fr 1fr;gap:18px}
+  @media(max-width:980px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .card-h{padding:13px 18px;border-bottom:1px solid var(--line);font-size:13px;font-weight:650;letter-spacing:.6px;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:10px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+  .dot.warn{background:var(--gold);box-shadow:0 0 8px var(--gold)}
+  /* simulated desktop */
+  .screen{position:relative;margin:18px;background:#05070b;border:1px solid var(--line);border-radius:10px;overflow:hidden;aspect-ratio:16/9.4;user-select:none}
+  .menubar{height:30px;background:#121722;display:flex;align-items:center;padding:0 12px;gap:12px;font-size:11px;color:var(--dim);border-bottom:1px solid var(--line)}
+  .menubar .mb-dot{width:9px;height:9px;border-radius:50%}
+  .win{position:absolute;left:9%;top:16%;width:62%;background:#171d29;border:1px solid #2c3648;border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,.55);overflow:hidden}
+  .win-bar{background:#1e2534;padding:9px 13px;font-size:12px;color:var(--dim);display:flex;align-items:center;gap:8px;border-bottom:1px solid #2c3648;font-family:var(--mono)}
+  .win-body{padding:20px;display:flex;flex-direction:column;gap:13px}
+  .btnrow{display:flex;gap:10px}
+  .tbtn{flex:1;padding:12px;border-radius:8px;border:1px solid #2c3648;font-size:14px;font-weight:650;cursor:default;color:var(--txt)}
+  #btn-deploy{background:linear-gradient(180deg,#1f7a4d,#166038);border-color:#2c8a58}
+  #btn-cancel{background:#232b3b}
+  #field{background:#0d1119;border:1px solid #2c3648;border-radius:8px;padding:12px;color:var(--txt);font-size:14px;font-family:var(--mono);width:100%;outline:none}
+  #field:focus{border-color:var(--accent)}
+  .readout{font-family:var(--mono);font-size:12px;color:var(--dim);min-height:18px}
+  .readout b{color:var(--green)}
+  .cursor{position:absolute;width:18px;height:18px;margin:-2px 0 0 -2px;z-index:5;transition:left .55s cubic-bezier(.3,.7,.3,1),top .55s cubic-bezier(.3,.7,.3,1);pointer-events:none}
+  .cursor::before{content:"";position:absolute;left:7px;top:7px;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+  .cursor::after{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;border:1.5px solid var(--accent);opacity:.7}
+  .cursor.clicking::after{animation:ping .35s ease-out}
+  @keyframes ping{0%{transform:scale(1);opacity:.9}100%{transform:scale(2.4);opacity:0}}
+  .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:4}
+  .flash.go{animation:flash .3s ease-out}
+  @keyframes flash{0%{opacity:.85}100%{opacity:0}}
+  .screen-foot{padding:10px 18px;border-top:1px solid var(--line);font-size:12px;color:var(--faint);font-family:var(--mono);display:flex;justify-content:space-between}
+  /* bridges */
+  .bridges{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 18px}
+  .bridge{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .bridge h3{font-size:14px;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+  .bridge p{font-size:12px;color:var(--dim);font-family:var(--mono)}
+  .bridge .st{font-size:12px;margin-top:8px;font-family:var(--mono)}
+  .st.ok{color:var(--green)} .st.idle{color:var(--faint)}
+  /* controls */
+  .controls{padding:18px;display:flex;flex-direction:column;gap:16px}
+  .mrow{display:flex;flex-wrap:wrap;gap:8px}
+  .mbtn{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:10px 13px;font-size:13px;font-weight:600;cursor:pointer}
+  .mbtn:hover{border-color:var(--accent)}
+  .mbtn.active{border-color:var(--accent);background:#16232b;color:var(--accent)}
+  .srow{display:grid;grid-template-columns:110px 1fr 64px;align-items:center;gap:10px;font-size:13px;color:var(--dim)}
+  .srow output{font-family:var(--mono);color:var(--txt);text-align:right}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .toggles{display:flex;gap:16px;flex-wrap:wrap}
+  .tgl{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--dim);cursor:pointer}
+  .tgl input{accent-color:var(--gold);width:16px;height:16px}
+  .runbtn{background:linear-gradient(180deg,#1f8a52,#166038);border:1px solid #2fa968;color:#fff;font-size:16px;font-weight:750;border-radius:10px;padding:14px;cursor:pointer;letter-spacing:.3px}
+  .runbtn:hover{filter:brightness(1.1)}
+  .runbtn:disabled{opacity:.45;cursor:wait}
+  .hint{font-size:12px;color:var(--faint);line-height:1.5}
+  /* bottom */
+  .bottom{display:grid;grid-template-columns:1.5fr 1fr;gap:18px;margin-top:18px}
+  @media(max-width:980px){.bottom{grid-template-columns:1fr}}
+  .term{background:#070a0f;border-radius:0 0 14px 14px;padding:16px 18px;height:340px;overflow-y:auto;font-family:var(--mono);font-size:12.5px;line-height:1.75}
+  .term .t{color:var(--faint);margin-right:8px}
+  .ln-info{color:#aeb8c9}.ln-info b{color:var(--accent);font-weight:600}
+  .ln-ok{color:var(--green)}
+  .ln-warn{color:var(--gold)}
+  .ln-err{color:var(--red)}
+  .ln-sys{color:var(--faint);font-style:italic}
+  .side{padding:18px;display:flex;flex-direction:column;gap:16px}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .stat .v{font-size:22px;font-weight:750;font-family:var(--mono)}
+  .stat .k{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
+  pre.code{background:#070a0f;border:1px solid var(--line);border-radius:10px;padding:14px;font-family:var(--mono);font-size:12px;line-height:1.7;color:#aeb8c9;overflow-x:auto}
+  pre.code .kw{color:var(--accent)} pre.code .str{color:var(--green)} pre.code .cm{color:var(--faint)}
+  footer{max-width:1240px;margin:0 auto;padding:0 22px 40px;color:var(--faint);font-size:12px;line-height:1.7}
+  footer code{font-family:var(--mono);color:var(--dim)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">H</div>
+  <h1>HULL <span>Mission Control — interactive demo</span></h1>
+  <div class="spacer"></div>
+  <a class="ghbtn" href="https://github.com/MTG9T4/hull" target="_blank" rel="noopener">View on GitHub</a>
+</header>
+<main>
+  <div class="grid">
+    <div class="card">
+      <div class="card-h"><span class="dot" id="live-dot"></span> Live simulation · desktop bridge</div>
+      <div class="screen" id="screen">
+        <div class="menubar">
+          <span class="mb-dot" style="background:#e5635f"></span><span class="mb-dot" style="background:#d4af37"></span><span class="mb-dot" style="background:#3fd68c"></span>
+          <span style="margin-left:8px">hull — desktop bridge</span>
+          <span style="margin-left:auto;font-family:var(--mono)" id="clock">--:--:--</span>
+        </div>
+        <div class="win">
+          <div class="win-bar">● deploy-console — bash</div>
+          <div class="win-body">
+            <div class="btnrow">
+              <div class="tbtn" id="btn-deploy">Deploy</div>
+              <div class="tbtn" id="btn-cancel">Cancel</div>
+            </div>
+            <input id="field" placeholder="type something…" readonly>
+            <div class="readout" id="readout">awaiting maneuver…</div>
+          </div>
+        </div>
+        <div class="cursor" id="cursor" style="left:50%;top:55%"></div>
+        <div class="flash" id="flash"></div>
+      </div>
+      <div class="screen-foot"><span>simulated 1280 × 800</span><span id="bridge-line">bridge: desktop · healthy</span></div>
+      <div class="bridges">
+        <div class="bridge">
+          <h3><span class="dot" id="dot-desktop"></span> desktop</h3>
+          <p>click · type · capture</p>
+          <div class="st ok" id="st-desktop">healthy · 12ms</div>
+        </div>
+        <div class="bridge">
+          <h3><span class="dot warn" id="dot-robot"></span> robot</h3>
+          <p>brewie · standby</p>
+          <div class="st idle" id="st-robot">standby</div>
+        </div>
+      </div>
+      <div style="padding:0 18px 18px"><button class="mbtn" id="health-btn" style="width:100%">Run health check</button></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><span class="dot"></span> Pilot controls</div>
+      <div class="controls">
+        <div>
+          <div style="font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Maneuver</div>
+          <div class="mrow" id="mrow">
+            <button class="mbtn active" data-m="click-deploy">Click Deploy</button>
+            <button class="mbtn" data-m="click-cancel">Click Cancel</button>
+            <button class="mbtn" data-m="type">Type text</button>
+            <button class="mbtn" data-m="capture">Capture</button>
+            <button class="mbtn" data-m="sequence">Sequence ×3</button>
+          </div>
+        </div>
+        <div class="srow"><label for="r-retries">Retries</label><input type="range" id="r-retries" min="0" max="5" step="1" value="3"><output id="o-retries">3</output></div>
+        <div class="srow"><label for="r-timeout">Timeout (s)</label><input type="range" id="r-timeout" min="1" max="10" step="1" value="5"><output id="o-timeout">5s</output></div>
+        <div class="srow"><label for="r-backoff">Backoff (s)</label><input type="range" id="r-backoff" min="0.1" max="2" step="0.1" value="0.5"><output id="o-backoff">0.5s</output></div>
+        <div class="toggles">
+          <label class="tgl"><input type="checkbox" id="t-flaky"> Flaky bridge <span style="color:var(--faint)">(random failures)</span></label>
+          <label class="tgl"><input type="checkbox" id="t-slow"> Slow bridge <span style="color:var(--faint)">(trips timeout)</span></label>
+        </div>
+        <button class="runbtn" id="run">▶ Dispatch maneuver</button>
+        <div class="hint">This mirrors the real <code style="font-family:var(--mono)">Pilot.execute_maneuver()</code> loop: attempts, per-attempt timeout, exponential backoff, and a pilot that absorbs failure instead of crashing. Flip on <b style="color:var(--gold)">Flaky bridge</b> and watch the retries earn their keep.</div>
+      </div>
+    </div>
+  </div>
+  <div class="bottom">
+    <div class="card">
+      <div class="card-h"><span class="dot"></span> Pilot log</div>
+      <div class="term" id="term"></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><span class="dot"></span> Telemetry</div>
+      <div class="side">
+        <div class="stats">
+          <div class="stat"><div class="v" id="s-disp">0</div><div class="k">dispatched</div></div>
+          <div class="stat"><div class="v" id="s-ok" style="color:var(--green)">0</div><div class="k">succeeded</div></div>
+          <div class="stat"><div class="v" id="s-fail" style="color:var(--red)">0</div><div class="k">failed</div></div>
+          <div class="stat"><div class="v" id="s-retry" style="color:var(--gold)">0</div><div class="k">retries burned</div></div>
+        </div>
+        <pre class="code"><span class="cm"># the real call this simulates</span>
+<span class="kw">from</span> hull.pilot <span class="kw">import</span> Pilot
+<span class="kw">from</span> hull.bridge.desktop <span class="kw">import</span> DesktopBridge
+
+pilot = Pilot({<span class="str">"desktop"</span>: DesktopBridge()})
+ok = <span class="kw">await</span> pilot.execute_maneuver(
+    <span class="str">"click"</span>, <span class="str">"desktop"</span>,
+    retries=<span class="str">3</span>, timeout=<span class="str">5</span>, backoff=<span class="str">0.5</span>,
+    x=<span class="str">412</span>, y=<span class="str">188</span>,
+)</pre>
+      </div>
+    </div>
+  </div>
+</main>
+<footer>
+  Browser simulation of Hull's pilot loop — no backend, nothing leaves your machine. The Python pilot runs the same logic for real: <code>pip install hull</code> · MIT licensed · <a href="https://github.com/MTG9T4/hull">github.com/MTG9T4/hull</a>
+</footer>
+<script>
+const $ = id => document.getElementById(id);
+const term = $("term"), screen = $("screen"), cursor = $("cursor"),
+      readout = $("readout"), field = $("field"), flash = $("flash");
+const stats = { disp:0, ok:0, fail:0, retry:0 };
+let selected = "click-deploy", busy = false;
+
+setInterval(() => { $("clock").textContent = new Date().toLocaleTimeString("en-GB"); }, 1000);
+
+function ts(){ return new Date().toLocaleTimeString("en-GB"); }
+function log(msg, cls="ln-info"){
+  const div = document.createElement("div");
+  div.className = cls;
+  div.innerHTML = `<span class="t">${ts()}</span>${msg}`;
+  term.appendChild(div);
+  term.scrollTop = term.scrollHeight;
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function bump(k){ stats[k]++; $( {disp:"s-disp",ok:"s-ok",fail:"s-fail",retry:"s-retry"}[k] ).textContent = stats[k]; }
+
+// maneuver select
+document.querySelectorAll("#mrow .mbtn").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("#mrow .mbtn").forEach(x => x.classList.remove("active"));
+  b.classList.add("active"); selected = b.dataset.m;
+}));
+// sliders
+[["r-retries","o-retries",v=>v],["r-timeout","o-timeout",v=>v+"s"],["r-backoff","o-backoff",v=>v+"s"]]
+.forEach(([r,o,f]) => $(r).addEventListener("input", e => $(o).textContent = f(e.target.value)));
+const cfg = () => ({
+  retries: +$("r-retries").value, timeout: +$("r-timeout").value, backoff: +$("r-backoff").value,
+  flaky: $("t-flaky").checked, slow: $("t-slow").checked
+});
+
+// --- simulated bridge actions (DOM) ---
+function centerOf(el){
+  const s = screen.getBoundingClientRect(), r = el.getBoundingClientRect();
+  return { x: r.left - s.left + r.width/2, y: r.top - s.top + r.height/2 };
+}
+async function moveCursorTo(el){
+  const p = centerOf(el);
+  cursor.style.left = p.x + "px"; cursor.style.top = p.y + "px";
+  await sleep(620);
+}
+async function doClick(el){
+  await moveCursorTo(el);
+  cursor.classList.add("clicking");
+  await sleep(180); cursor.classList.remove("clicking");
+  readout.innerHTML = `clicked <b>${el.id.replace("btn-","")}</b> @ (${Math.round(centerOf(el).x)}, ${Math.round(centerOf(el).y)})`;
+}
+async function doType(text){
+  await moveCursorTo(field);
+  field.focus(); field.value = "";
+  for (const ch of text){ field.value += ch; await sleep(45); }
+  readout.innerHTML = `typed <b>${text.length}</b> chars`;
+}
+async function doCapture(){
+  flash.classList.remove("go"); void flash.offsetWidth; flash.classList.add("go");
+  await sleep(320);
+  const bytes = 150000 + Math.floor(Math.random()*60000);
+  readout.innerHTML = `captured <b>${bytes.toLocaleString()}</b> bytes (PNG)`;
+}
+
+// --- pilot loop: faithful mirror of Pilot.execute_maneuver ---
+const ACTIONS = {
+  "click-deploy": { label:"click → deploy",  run:() => doClick($("btn-deploy")) },
+  "click-cancel": { label:"click → cancel",  run:() => doClick($("btn-cancel")) },
+  "type":         { label:"type → field",    run:() => doType("hello from hull") },
+  "capture":      { label:"capture → state", run:() => doCapture() },
+};
+
+async function attemptOnce(action, timeout, flaky, slow){
+  // returns {ok, error} — never throws, like the real bridge call
+  const work = (async () => {
+    if (slow) await sleep(timeout*1000 + 1400);       // bridge hangs past the deadline
+    else await sleep(500 + Math.random()*400);
+    if (flaky && Math.random() < 0.55)
+      return { ok:false, error:"bridge reported failure" };
+    await action.run();
+    return { ok:true };
+  })();
+  const timer = new Promise(res => setTimeout(() => res({ ok:false, error:`timed out after ${timeout}s` }), timeout*1000));
+  return Promise.race([work, timer]);
+}
+
+async function executeManeuver(key, c){
+  const action = ACTIONS[key];
+  const attempts = c.retries + 1;
+  stats.disp++; bump("disp");
+  log(`<b>Maneuver '${action.label}'</b> → bridge 'desktop' · retries=${c.retries} timeout=${c.timeout}s backoff=${c.backoff}s`, "ln-sys");
+  let lastError = "unknown failure";
+  for (let a = 1; a <= attempts; a++){
+    log(`attempt ${a}/${attempts} …`);
+    const r = await attemptOnce(action, c.timeout, c.flaky, c.slow);
+    if (r.ok){
+      if (a > 1) log(`Maneuver <b>'${action.label}'</b> <b>succeeded on attempt ${a}/${attempts}</b>`, "ln-ok");
+      else log(`Maneuver <b>'${action.label}'</b> succeeded on attempt ${a}/${attempts}`, "ln-ok");
+      bump("ok"); return true;
+    }
+    lastError = r.error;
+    if (a < attempts){
+      const delay = c.backoff * Math.pow(2, a-1);
+      bump("retry");
+      log(`Maneuver '${action.label}' failed (attempt ${a}/${attempts}): ${r.error} — <b>retrying in ${delay.toFixed(2)}s</b>`, "ln-warn");
+      await sleep(delay*1000);
+    }
+  }
+  log(`Maneuver '${action.label}' <b>failed after ${attempts} attempt(s)</b>: ${lastError}`, "ln-err");
+  bump("fail"); return false;
+}
+
+$("run").addEventListener("click", async () => {
+  if (busy) return; busy = true; $("run").disabled = true;
+  const c = cfg();
+  try{
+    if (selected === "sequence"){
+      const steps = ["click-deploy","type","capture"];
+      log(`<b>sequence</b>: ${steps.length} maneuvers chained`, "ln-sys");
+      for (let i=0;i<steps.length;i++){
+        log(`— step ${i+1}/${steps.length}`, "ln-sys");
+        const ok = await executeManeuver(steps[i], c);
+        if (!ok){ log(`sequence aborted at step ${i+1} — pilot absorbed the failure, ship keeps sailing`, "ln-err"); break; }
+      }
+    } else {
+      await executeManeuver(selected, c);
+    }
+  } finally { busy = false; $("run").disabled = false; }
+});
+
+$("health-btn").addEventListener("click", async () => {
+  log(`health_check() → probing bridges…`, "ln-sys");
+  $("dot-desktop").className = "dot warn"; $("st-desktop").className = "st idle"; $("st-desktop").textContent = "probing…";
+  await sleep(700);
+  $("dot-desktop").className = "dot"; $("st-desktop").className = "st ok";
+  $("st-desktop").textContent = `healthy · ${8+Math.floor(Math.random()*9)}ms`;
+  $("bridge-line").textContent = "bridge: desktop · healthy";
+  log(`desktop: <b>healthy</b> · robot: standby`, "ln-ok");
+});
+
+log(`hull pilot initialized — 2 bridges attached (desktop, robot)`, "ln-sys");
+log(`dispatch a maneuver to begin. tip: enable <b>flaky bridge</b> + retries to watch self-healing.`, "ln-sys");
+</script>
+</body>
+</html>
