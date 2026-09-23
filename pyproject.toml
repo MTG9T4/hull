@@ -1,0 +1,62 @@
+[project]
+name = "hull"
+version = "0.1.0"
+description = "Self-healing runtime for AI operators — build, train, and deploy intelligent agents across digital and physical environments."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "Hull" }]
+keywords = [
+    "operators",
+    "automation",
+    "robotics",
+    "desktop",
+    "simulation",
+    "sdk",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+license = { text = "MIT" }
+dependencies = ["numpy"]
+
+[project.urls]
+Repository = "https://github.com/MTG9T4/hull"
+Issues = "https://github.com/MTG9T4/hull/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+exclude = ["examples/", "tests/", "uv.lock", "ruff.toml"]
+
+[tool.taskipy.tasks]
+format = "ruff format"
+check = "ruff check"
+typing = "mypy"
+test = "pytest -m 'not benchmark'"
+bench = "pytest --benchmark-only"
+clean = "rm -rf .mypy_cache .pytest_cache .ruff_cache dist"
+
+[project.optional-dependencies]
+desktop = ["mss", "pyautogui", "types-pyautogui"]
+vision = ["opencv-python"]
+simulation = ["mujoco"]
+robot = ["roslibpy"]
+inference = ["onnxruntime"]
+training = ["torch", "torchvision", "transformers"]
+streaming = ["pygobject"]
+solana = ["solders", "solana", "anchorpy", "base58", "msgpack"]
+image = ["pillow", "imageio"]
+video = ["imageio[ffmpeg]"]
+ocr = ["pytesseract"]
+
+[dependency-groups]
+dev = ["mypy", "pytest", "pytest-benchmark", "types-psutil", "ruff", "taskipy"]
